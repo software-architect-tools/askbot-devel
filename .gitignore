@@ -2,7 +2,6 @@
 *.swp
 *.log
 *~
-askbot_site
 fetch
 push
 propagate
@@ -18,7 +17,8 @@ run
 *.wsgi
 nbproject
 settings_local.py
-settings.py
+# uncomment to allow easy startup
+# settings.py
 .idea
 .coverage
 *.iml
@@ -36,9 +36,12 @@ nbproject
 pip-log.txt
 tmp/*
 /tmp/
-/__init__.py
-/manage.py
-/urls.py
+# uncomment to allow easy startup
+# /__init__.py
+# uncomment to allow easy startup
+# /manage.py
+# uncomment to allow easy startup
+# /urls.py
 /log
 /prof
 load
@@ -64,4 +67,4 @@ htmlcov
 node_modules
 bower_components/
 .tox
-coverage_html_report
+askbot.egg-info

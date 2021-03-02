@@ -2,11 +2,13 @@
 these automatically catch email-related exceptions
 """
 from django.conf import settings as django_settings
-
 DEBUG_EMAIL = django_settings.ASKBOT_DEBUG_INCOMING_EMAIL
 
+import json
 import logging
 import os
+import re
+import smtplib
 import sys
 from askbot import exceptions
 from askbot import const
@@ -19,9 +21,10 @@ from askbot.utils.html import get_text_from_html
 from django.core import mail
 from django.core.exceptions import PermissionDenied
 from django.forms import ValidationError
-from django.utils.text import format_lazy
 from django.utils.translation import ugettext as _
 from django.utils.translation import ugettext_lazy
+from django.utils.translation import string_concat
+from django.template import Context
 from django.utils.html import strip_tags
 
 #todo: maybe send_mail functions belong to models
@@ -97,8 +100,8 @@ def send_mail(
     if raise_on_failure is True, exceptions.EmailNotSent is raised
     `attachments` is a tuple of triples ((filename, filedata, mimetype), ...)
     """
-    from_email = from_email or askbot_settings.ADMIN_EMAIL \
-                            or django_settings.DEFAULT_FROM_EMAIL
+    from_email = from_email or django_settings.DEFAULT_FROM_EMAIL \
+                            or askbot_settings.ADMIN_EMAIL
     body_text = absolutize_urls(body_text)
     try:
         assert(subject_line is not None)
@@ -111,11 +114,11 @@ def send_mail(
             headers=headers,
             attachments=attachments
         )
-        logging.debug('sent update to %s' % ','.join(map(str, recipient_list)))
+        logging.debug('sent update to %s' % ','.join(recipient_list))
     except Exception as error:
-        sys.stderr.write('\n' + str(error) + '\n')
+        sys.stderr.write('\n' + unicode(error).encode('utf-8') + '\n')
         if raise_on_failure == True:
-            raise exceptions.EmailNotSent(str(error))
+            raise exceptions.EmailNotSent(unicode(error))
 
 INSTRUCTIONS_PREAMBLE = ugettext_lazy('<p>To post by email, please:</p>')
 QUESTION_TITLE_INSTRUCTION = ugettext_lazy(
@@ -153,19 +156,23 @@ def bounce_email(
         ) % {'site': askbot_settings.APP_SHORT_NAME}
 
         if askbot_settings.TAGS_ARE_REQUIRED:
-            error_message = format_lazy('{}<ul>{}{}{}</ul>{}',
+            error_message = string_concat(
                                     INSTRUCTIONS_PREAMBLE,
+                                    '<ul>',
                                     QUESTION_TITLE_INSTRUCTION,
                                     REQUIRED_TAGS_INSTRUCTION,
                                     QUESTION_DETAILS_INSTRUCTION,
+                                    '</ul>',
                                     TAGS_INSTRUCTION_FOOTNOTE
                                 )
         else:
-            error_message = format_lazy('{}<ul>{}{}{}</ul>{}',
+            error_message = string_concat(
                                     INSTRUCTIONS_PREAMBLE,
-                                    QUESTION_TITLE_INSTRUCTION,
-                                    QUESTION_DETAILS_INSTRUCTION,
-                                    OPTIONAL_TAGS_INSTRUCTION,
+                                    '<ul>',
+                                        QUESTION_TITLE_INSTRUCTION,
+                                        QUESTION_DETAILS_INSTRUCTION,
+                                        OPTIONAL_TAGS_INSTRUCTION,
+                                    '</ul>',
                                     TAGS_INSTRUCTION_FOOTNOTE
                                 )
 
@@ -404,7 +411,7 @@ def process_emailed_question(
             email_address,
             subject,
             reason = 'permission_denied',
-            body_text = str(error),
+            body_text = unicode(error),
             reply_to = reply_to
         )
     except ValidationError:
